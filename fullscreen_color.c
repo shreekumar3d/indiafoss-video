@@ -20,20 +20,33 @@ typedef struct {
     const char* name;
 } Color;
 
+// Some of these fullscreen colors do NOT produce a uniform color
+// image on the receiver. They are commented out. Uncomment to see
+// what happens on the receiver
 static Color colors[] = {
     {255, 0, 0, "Red"},
     {0, 255, 0, "Green"},
     {0, 0, 255, "Blue"},
     {255, 255, 255, "White"},
     {0, 0, 0, "Black"},
-    {255, 255, 0, "Yellow"},
     {255, 0, 255, "Magenta"},
     {0, 255, 255, "Cyan"},
     {128, 128, 128, "Gray"},
-    {255, 165, 0, "Orange"}
+    {255, 64, 0, "Less Yellow"},
+    {255, 128, 0, "More Yellow"},
+    {255, 128+1, 0, "Passes!"},
+    {255, 128+1, 255, "Passes!"},
+    {255, 128+2, 128+64, "Passes!"},
+    {255, 128+2, 128+62, "Passes!!"},
+    //{255, 128+2, 128+61, "Fails!!"}, // uncomment to see >1 colors in receiver
+    //{255, 128+2, 128, "Fails!!"},
+    //{255, 128+2, 0, "Passes!"} // any G beyond 128 might fail
+    //{255, 255, 0, "Yellow"}, // FAILS
+    //{255, 165, 0, "Orange"}  // FAILS - why?
 };
 
 static const int num_colors = sizeof(colors) / sizeof(colors[0]);
+//static const int num_colors = 6;
 
 int find_external_display() {
     int num_displays = SDL_GetNumVideoDisplays();
@@ -69,6 +82,7 @@ int main(int argc, char* argv[]) {
     bool running = true;
     int current_color = 0;
     int target_display = 0;
+    int frame = 0;
 
     // Initialize SDL
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -192,6 +206,13 @@ int main(int argc, char* argv[]) {
 
         // Present the frame (waits for vsync)
         SDL_RenderPresent(renderer);
+
+	int frame_cycle = 10; // change every N frames. Don't set less than 3 - kills colors on receiver side
+	frame++;
+	if((frame%frame_cycle)==(frame_cycle-1)) {
+            current_color = (current_color + 1) % num_colors;
+	    //printf("%5d %d\n", frame, current_color);
+	}
     }
 
     printf("\nShutting down...\n");

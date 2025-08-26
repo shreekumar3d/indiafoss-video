@@ -2,7 +2,8 @@
  * camera_stream.c
  * Human checked, but Claude generated code, mostly
  *
- * gcc -o camera_stream camera_stream.c
+ * gcc -O2 -o camera_stream camera_stream.c
+ * (need -O2 to make the loops run fast enough)
  *
  * Prompt:
  * need a C program to initialize a camera using v4l, set image format to YUV2,
@@ -27,7 +28,7 @@
 #include <stdint.h>
 
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
-#define DEVICE_NAME "/dev/video0"
+#define DEVICE_NAME "/dev/video4"
 #define NUM_BUFFERS 4
 
 struct buffer {
@@ -85,35 +86,80 @@ static yuv_pixel_t get_yuv_pixel(uint8_t *buffer, int x, int y, int width) {
     return pixel;
 }
 
-static int check_pixel_uniformity(uint8_t *buffer, int width, int height) {
+int ref_y = 0;
+int ref_u = 0;
+int ref_v = 0;
+int ref_count = 0;
+
+uint8_t yuv[256*256*256];
+
+static int check_pixel_uniformity(uint8_t *buffer, int width, int height, int frame_count) {
+    int mismatch = 0;
+    int distinct_colors = 0;
     if (width <= 0 || height <= 0) {
         return 0;
     }
 
-    // Get reference pixel (first pixel)
-    yuv_pixel_t ref_pixel = get_yuv_pixel(buffer, 0, 0, width);
+    memset(yuv, 0, sizeof(yuv));
 
-    printf("Reference pixel: Y=%d, U=%d, V=%d\n", ref_pixel.y, ref_pixel.u, ref_pixel.v);
+    int border_skip = 4; // setting this to 0 fails first and last columns of image
+    // Get reference pixel (center of screen pixel)
+    yuv_pixel_t ref_pixel = get_yuv_pixel(buffer, width/2, height/2, width);
+
+    // If the reference pixel changed,
+    if((ref_pixel.y != ref_y) || (ref_pixel.u != ref_u) || (ref_pixel.v != ref_v)) {
+        ref_y = ref_pixel.y;
+        ref_u = ref_pixel.u;
+        ref_v = ref_pixel.v;
+        ref_count++;
+        printf("%5d %5d ref: Y=%d, U=%d, V=%d\n", frame_count, ref_count, ref_pixel.y, ref_pixel.u, ref_pixel.v);
+    }
+
+    {
+        uint32_t this_y = ref_pixel.y;
+        uint32_t this_u = ref_pixel.u;
+        uint32_t this_v = ref_pixel.v;
+        int pixel_idx = (this_y<<16)+(this_u<<8)+(this_v);
+        distinct_colors++;
+	yuv[pixel_idx] = 1;
+    }
 
     // Check all pixels against reference
     for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
+        for (int x = border_skip; x < width-border_skip; x++) {
             yuv_pixel_t current_pixel = get_yuv_pixel(buffer, x, y, width);
 
             if (current_pixel.y != ref_pixel.y ||
                 current_pixel.u != ref_pixel.u ||
                 current_pixel.v != ref_pixel.v) {
+                mismatch++;
 
-                printf("PIXEL MISMATCH at (%d, %d): Y=%d, U=%d, V=%d (expected Y=%d, U=%d, V=%d)\n",
+		uint32_t this_y = current_pixel.y;
+		uint32_t this_u = current_pixel.u;
+		uint32_t this_v = current_pixel.v;
+
+		int pixel_idx = (this_y<<16)+(this_u<<8)+(this_v);
+		if(yuv[pixel_idx]==0) {
+		    distinct_colors++;
+		    yuv[pixel_idx] = 1;
+		}
+
+		if(mismatch==1) {
+/*
+                    printf("PIXEL MISMATCH at (%d, %d): Y=%d, U=%d, V=%d (expected Y=%d, U=%d, V=%d)\n",
                        x, y, current_pixel.y, current_pixel.u, current_pixel.v,
                        ref_pixel.y, ref_pixel.u, ref_pixel.v);
-                return 0; // Non-uniform
+*/
+		}
+                //return 0; // Non-uniform
             }
         }
     }
-
-    printf("All pixels are uniform!\n");
-    return 1; // Uniform
+    if (mismatch > 0) {
+        printf("Mismatches: %d out of %d distinct colors = %d\n", mismatch, width*height, distinct_colors);
+    }
+    //printf("All pixels are uniform!\n");
+    return distinct_colors; // Uniform
 }
 
 static void init_device(struct camera *cam) {
@@ -310,7 +356,7 @@ static void stop_capturing(struct camera *cam) {
     printf("Stopped streaming\n");
 }
 
-static int read_frame(struct camera *cam) {
+static int read_frame(struct camera *cam, int frame_count) {
     struct v4l2_buffer buf;
     unsigned int i;
 
@@ -332,14 +378,14 @@ static int read_frame(struct camera *cam) {
     assert(buf.index < cam->n_buffers);
 
     // Process the frame - check pixel uniformity
-    printf("Frame %d captured, size: %d bytes\n", buf.sequence, buf.bytesused);
-    check_pixel_uniformity((uint8_t *)cam->buffers[buf.index].start,
-                          cam->width, cam->height);
+    //printf("Frame %d captured, size: %d bytes idx=%d\n", buf.sequence, buf.bytesused, buf.index);
+    int colors = check_pixel_uniformity((uint8_t *)cam->buffers[buf.index].start, 
+                          cam->width, cam->height, frame_count);
 
     if (-1 == xioctl(cam->fd, VIDIOC_QBUF, &buf))
         errno_exit("VIDIOC_QBUF");
 
-    return 1;
+    return (colors==1);
 }
 
 static void cleanup(struct camera *cam) {
@@ -364,7 +410,7 @@ int main(void) {
     struct timeval tv;
     int r;
     int frame_count = 0;
-    int max_frames = 100; // Limit for demo purposes
+    int max_frames = 1000; // Limit for demo purposes
 
     // Open device
     cam.fd = open(DEVICE_NAME, O_RDWR | O_NONBLOCK, 0);
@@ -384,6 +430,7 @@ int main(void) {
     printf("Starting capture loop (will capture %d frames)...\n", max_frames);
 
     // Main capture loop
+    int success = 0;
     while (frame_count < max_frames) {
         FD_ZERO(&fds);
         FD_SET(cam.fd, &fds);
@@ -405,11 +452,14 @@ int main(void) {
             exit(EXIT_FAILURE);
         }
 
-        if (read_frame(&cam)) {
-            frame_count++;
-            printf("Processed frame %d/%d\n\n", frame_count, max_frames);
-        }
+	int status = read_frame(&cam, frame_count);
+        frame_count++;
+	if (status == 1) {
+		success++;
+	}
+        //printf("Processed frame %d/%d\n\n", frame_count, max_frames);
     }
+    printf("Success frames %d/%d\n\n", success, max_frames);
 
     stop_capturing(&cam);
     cleanup(&cam);
