@@ -38,11 +38,9 @@ def span_text(text, size, limit):
         lines.append(' '.join(this_line))
     return lines
 
-def gen_speaker_plus_slides(talk_info):
-    tid = "talk1"
-    session_track = "main"
-    template_image_dir = "templates/images/"
+def gen_speaker_plus_slides(talk_info, track2dir, output_base_dir):
 
+    template_image_dir = "templates/images/"
     title = talk_info['title'].strip()
 
     title_line = span_text(title, 28, 460) # limit from template
@@ -107,11 +105,14 @@ def gen_speaker_plus_slides(talk_info):
     f.write(template)
     f.close()
 
-    track_dir = Path(track)
+    track_dir = Path(os.path.join(output_base_dir,track2dir[track]))
     track_dir.mkdir(parents=True, exist_ok=True)
-    #output_file = os.path.join(track_dir,'_'.join(title.split(' ')[:4]))+'.png'
-    output_file = ('_'.join(title.split(' ')[:4]))+'.png'
+    output_file = os.path.join(track_dir, '_'.join(title.split(' ')[:5]))+'.png'
     output_file = output_file.replace(':','',-1) # remove troublesome chars in filename
+    output_file = output_file.replace('-','',-1)
+    output_file = output_file.replace(',','',-1)
+    output_file = output_file.replace('+','',-1)
+    output_file = output_file.replace('__','_',-1)
     cmd = ['inkscape', '--export-type=png', '--export-width=1920',
            '--export-height=1080', '--export-filename', output_file, 'out.svg']
     print(output_file)
@@ -119,9 +120,11 @@ def gen_speaker_plus_slides(talk_info):
     # ensure the file actually got created
     open(output_file,'r')
 
-# Load all talk metadata
+# Load all talk metadata. This file may nee manual changes for formatting,
+# inconsistent information provided by speakers, abbreviations, etc
 talks = []
 talk_info = {}
+
 with open('indiafoss-cfp-track.csv','r') as csvfile:
     reader = csv.reader(csvfile)
     header = next(reader) # skip header
@@ -158,7 +161,19 @@ if talk_info:
 
 print(f'Number of sessions = {len(talks)}')
 
+# It's a short list, so feed in by hand
+track2dir = {
+    'Main track' : 'main',
+    'Main Track' : 'main',
+    'Geopolitics and Policy in FOSS Devroom' : 'policy',
+    'Open Hardware Devroom' : 'hardware',
+    'Android Open Source Project (AOSP) Devroom' : 'aosp',
+    'Compilers, Programming Languages and Systems Devroom' : 'compilers',
+    'Open Data Devroom' : 'data',
+    'FOSS in Science Devroom' : 'science'
+}
 # Generate scene images
+output_base_dir = 'track_order'
 for talk_info in talks:
-    gen_speaker_plus_slides(talk_info)
+    gen_speaker_plus_slides(talk_info, track2dir, output_base_dir)
 #gen_speaker_plus_slides(talks[0])
