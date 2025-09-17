@@ -1,6 +1,12 @@
+#!/usr/bin/env python3
 #
-# Generate scene images for all sessions
+# Generate scene images for a devroom/main track day long session
 #
+# ./gen-session-scene-images.py --track day1-audi1
+# ./gen-session-scene-images.py --devroom aosp
+#
+# Devrooms have list of session titles.
+# Tracks are exported from website schedule page
 #
 import csv
 import cairo
@@ -10,6 +16,8 @@ from xml.sax.saxutils import escape
 from pathlib import Path
 import os
 import string
+import argparse
+from datetime import datetime
 
 def get_text_width_mm(text, family='Inter', size=28, dpi=78):
     # Off-screen SVG surface
@@ -38,7 +46,7 @@ def span_text(text, size, limit):
         lines.append(' '.join(this_line))
     return lines
 
-def gen_speaker_plus_slides(talk_info, track2dir, output_base_dir):
+def gen_speaker_plus_slides(talk_info, track2dir, output_base_dir, file_prefix):
 
     template_image_dir = "templates/images/"
     title = talk_info['title'].strip()
@@ -105,20 +113,40 @@ def gen_speaker_plus_slides(talk_info, track2dir, output_base_dir):
     f.write(template)
     f.close()
 
-    track_dir = Path(os.path.join(output_base_dir,track2dir[track]))
+    track_dir = track2dir[track] if type(track2dir) is dict else track2dir
+    track_dir = Path(os.path.join(output_base_dir, track_dir))
     track_dir.mkdir(parents=True, exist_ok=True)
-    output_file = os.path.join(track_dir, '_'.join(title.split(' ')[:5]))+'.png'
+    output_file = '_'.join(title.split(' ')[:5])
+    output_file += '.png'
     output_file = output_file.replace(':','',-1) # remove troublesome chars in filename
+    output_file = output_file.replace('`','',-1)
     output_file = output_file.replace('-','',-1)
     output_file = output_file.replace(',','',-1)
     output_file = output_file.replace('+','',-1)
+    output_file = output_file.replace('@','',-1)
     output_file = output_file.replace('__','_',-1)
+    output_file = os.path.join(track_dir, file_prefix+output_file)
     cmd = ['inkscape', '--export-type=png', '--export-width=1920',
            '--export-height=1080', '--export-filename', output_file, 'out.svg']
     print(output_file)
     subprocess.run(cmd, check=True)
     # ensure the file actually got created
     open(output_file,'r')
+
+def get_track_talks(filename):
+    track_sessions = []
+    with open(filename, 'r') as csvfile:
+        reader = csv.reader(csvfile)
+        header = next(reader) # skip header
+        for row in reader:
+            # skip breaks, begin, end sessions etc
+            if len(row[7]) == 0: # no speakers
+                continue
+            # 2 => time, 0 => title
+            talk_time = datetime.strptime(row[2], "%H:%M").time()
+            track_sessions.append((talk_time, row[0]))
+    track_sessions.sort()
+    return map(lambda x: x[1], track_sessions)
 
 # Load all talk metadata. This file may nee manual changes for formatting,
 # inconsistent information provided by speakers, abbreviations, etc
@@ -159,7 +187,7 @@ if talk_info:
     talks.append(talk_info)
     talk_info = {}
 
-print(f'Number of sessions = {len(talks)}')
+#print(f'Number of sessions = {len(talks)}')
 
 # It's a short list, so feed in by hand
 track2dir = {
@@ -172,8 +200,59 @@ track2dir = {
     'Open Data Devroom' : 'data',
     'FOSS in Science Devroom' : 'science'
 }
-# Generate scene images
-output_base_dir = 'track_order'
-for talk_info in talks:
-    gen_speaker_plus_slides(talk_info, track2dir, output_base_dir)
+
+def gen_obs_track_images(track_talks, output_track):
+    missing_talks = []
+    output_base_dir = 'track-ordered'
+    for index, talk_title in enumerate(track_talks):
+        talk_title = talk_title.strip() # extra whitespace
+        matching_talk = [item for item in talks if item["title"]==talk_title]
+
+        if talk_title.startswith('-'):
+            print(f'Skipping devroom manager-led section : {talk_title}')
+            continue
+        elif talk_title.startswith('.'):
+            print(f'Skipping special instruction : {talk_title}')
+            continue
+        elif len(matching_talk) == 0:
+            # Schedule is entered by hand, so perhaps we're only fed a prefix
+            matching_talk = [item for item in talks if item["title"].startswith(talk_title[:len(talk_title)//2])]
+            if len(matching_talk) == 1:
+                print(f'Resolving "{talk_title}" with partial match!')
+            else:
+                print(f'Missing talk "{talk_title}"')
+                missing_talks.append(talk_title)
+        elif len(matching_talk) != 1:
+            raise ValueError(f"Bad metadata - multiple matches for {talk_title}")
+
+        if len(matching_talk) == 1:
+            gen_speaker_plus_slides(matching_talk[0], output_track, output_base_dir, '%02d_'%(index+1))
+    if len(missing_talks)>0:
+        raise ValueError(f"Missing talks {missing_talks}")
+
+def gen_obs_track_images_from_schedule(output_track):
+    track_talks = get_track_talks(f'track-lists/{output_track}.csv')
+    gen_obs_track_images(track_talks, output_track)
+
+def gen_obs_track_images_for_devroom(output_track):
+    track_talks = [ x.strip() for x in open(f'track-lists/{output_track}.txt','r').readlines() ]
+    gen_obs_track_images(track_talks, output_track)
+
+parser = argparse.ArgumentParser()
+group = parser.add_mutually_exclusive_group(required=True)
+group.add_argument("--track")
+group.add_argument("--devroom")
+args = parser.parse_args()
+
+if args.devroom:
+    gen_obs_track_images_for_devroom(args.devroom)
+if args.track:
+    gen_obs_track_images_from_schedule(args.track)
+
+#gen_obs_track_images_for_devroom('aosp')
+#gen_obs_track_images_from_schedule('day2-audi2')
+#gen_obs_track_images_from_schedule('day2-audi2')
+#gen_obs_track_images_from_schedule('day1-audi1')
+#gen_obs_track_images_from_schedule('day1-audi2')
+#gen_obs_track_images_from_schedule('day2-audi1')
 #gen_speaker_plus_slides(talks[0])
