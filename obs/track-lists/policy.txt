@@ -6,4 +6,4 @@ How Switzerland Became a Global Leader in FOSS
 Open Source Licenses: What Every Developer Should Know
 India's Geospatial Policy and Open Data Access
 The Logic of Space Policy in India
--Thank you
+.EOT
