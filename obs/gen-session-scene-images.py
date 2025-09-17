@@ -48,7 +48,9 @@ def span_text(text, size, limit):
     return lines
 
 def gen_speaker_plus_slides(talk_info, track2dir, output_base_dir, file_prefix):
-
+    panel_cfg = dict()
+    exec(open('track-lists/panels.map','r').read(), panel_cfg)
+    track2panel_svg = panel_cfg['track2panel_svg']
     template_image_dir = "templates/images/"
     title = talk_info['title'].strip()
 
@@ -127,8 +129,12 @@ def gen_speaker_plus_slides(talk_info, track2dir, output_base_dir, file_prefix):
     output_file = output_file.replace('@','',-1)
     output_file = output_file.replace('__','_',-1)
     output_file = os.path.join(track_dir, file_prefix+output_file)
-    cmd = ['inkscape', '--export-type=png', '--export-width=1920',
+    if talk_info['type']!='Panel Discussion':
+        cmd = ['inkscape', '--export-type=png', '--export-width=1920',
            '--export-height=1080', '--export-filename', output_file, temp_svg.name]
+    else:
+        cmd = ['inkscape', '--export-type=png', '--export-width=1920',
+           '--export-height=1080', '--export-filename', output_file, track2panel_svg[title]]
     print(output_file)
     subprocess.run(cmd, check=True)
     # ensure the file actually got created
