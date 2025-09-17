@@ -18,6 +18,7 @@ import os
 import string
 import argparse
 from datetime import datetime
+import tempfile
 
 def get_text_width_mm(text, family='Inter', size=28, dpi=78):
     # Off-screen SVG surface
@@ -109,9 +110,9 @@ def gen_speaker_plus_slides(talk_info, track2dir, output_base_dir, file_prefix):
     template = template.replace('$SPEAKER2-DESIGNATION$', escape(speaker2_designation))
     template = template.replace('$TEMPLATE-IMAGE-DIR$', template_image_dir, -1)
 
-    f = open("out.svg", "w")
-    f.write(template)
-    f.close()
+    temp_svg = tempfile.NamedTemporaryFile(mode='w', delete=True)
+    temp_svg.write(template)
+    temp_svg.flush()
 
     track_dir = track2dir[track] if type(track2dir) is dict else track2dir
     track_dir = Path(os.path.join(output_base_dir, track_dir))
@@ -127,7 +128,7 @@ def gen_speaker_plus_slides(talk_info, track2dir, output_base_dir, file_prefix):
     output_file = output_file.replace('__','_',-1)
     output_file = os.path.join(track_dir, file_prefix+output_file)
     cmd = ['inkscape', '--export-type=png', '--export-width=1920',
-           '--export-height=1080', '--export-filename', output_file, 'out.svg']
+           '--export-height=1080', '--export-filename', output_file, temp_svg.name]
     print(output_file)
     subprocess.run(cmd, check=True)
     # ensure the file actually got created
