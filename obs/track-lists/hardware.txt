@@ -1,0 +1,9 @@
+-Introduction and Opening Remarks
+Jigita - jump to soldering joy from pain
+VoltQuest: Open Source Hardware Gaming
+Homelabbing with Bare Metal
+CoryDora: A Macropad, A Supply Chain, and A Case for Local Manufacturing
+Makerville Badge
+Because Glancing at Your Phone While Riding Two-Wheelers Is Dumb!!!
+-Thank you and Closing Rermarks
+.EOT

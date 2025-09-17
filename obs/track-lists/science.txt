@@ -1,0 +1,14 @@
+KuttyPy: A no Cost transformation of the ubiquitous Arduino into an affordable data acquisition system for STEM
+The Array API Standard: One Ring to Rule Them All
+Zarr: Cloud-optimised, N-dimensional, typed array storage
+-Break (5 minutes)
+Beyond the smokescreen: Interactive in-browser FOSS tools for science communication and evidence-based environmental policy
+Assessing the State of India's Birds using FOSS
+Understanding API Dispatching in Scientific Python Ecosystem
+Collaborative CAD & GIS in JupyterLab
+-Break (5 minutes)
+Formalizing Mathematics and Scientific Computing with an Open-Source Theorem Solver
+Empowering Open Science with Scalable Interactive Computing Environments in India
+The Observability of Everything: Instrumenting Science with DevOps Tools
+Breaking into the Black Box: Making LLMs Ttransparent for Science
+-Thank you

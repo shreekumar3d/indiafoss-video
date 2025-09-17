@@ -1,0 +1,11 @@
+Strengthening the AOSP Developer Community: Tools, Boards & Collaboration
+First Step into Open Source with AOSP
+AOSP Testing at scale using CuttleFish in the Cloud
+Implementing a Custom HAL in AOSP
+-Break
+AOSP E2E: Internals, Security, Optimization - Building ROM & Automotivea
+Libcamera: Is it next universal AOSP Camera HAL?
+Android doesn’t impact general purpose embedded solutions any more ! - Does it ?
+AOSP without the Baggage: Booting with vanilla Linux Kernel
+-Thank you and Closing Rermarks
+.EOT

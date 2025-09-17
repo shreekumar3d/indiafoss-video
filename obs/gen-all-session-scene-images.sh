@@ -1,0 +1,10 @@
+./gen-session-scene-images.py --track day1-audi1
+./gen-session-scene-images.py --track day1-audi2
+./gen-session-scene-images.py --track day2-audi1
+./gen-session-scene-images.py --track day2-audi2
+./gen-session-scene-images.py --devroom aosp
+./gen-session-scene-images.py --devroom compilers
+./gen-session-scene-images.py --devroom hardware
+./gen-session-scene-images.py --devroom science
+./gen-session-scene-images.py --devroom policy
+./gen-session-scene-images.py --devroom data
