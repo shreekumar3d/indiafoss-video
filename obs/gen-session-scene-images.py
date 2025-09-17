@@ -127,6 +127,9 @@ def gen_speaker_plus_slides(talk_info, track2dir, output_base_dir, file_prefix):
     output_file = output_file.replace(',','',-1)
     output_file = output_file.replace('+','',-1)
     output_file = output_file.replace('@','',-1)
+    output_file = output_file.replace('/','',-1)
+    output_file = output_file.replace('"','',-1)
+    output_file = output_file.replace('?','',-1)
     output_file = output_file.replace('__','_',-1)
     output_file = os.path.join(track_dir, file_prefix+output_file)
     if talk_info['type']!='Panel Discussion':
