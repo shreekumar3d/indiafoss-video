@@ -142,6 +142,7 @@ def gen_speaker_plus_slides(talk_info, track2dir, output_base_dir, file_prefix):
     subprocess.run(cmd, check=True)
     # ensure the file actually got created
     open(output_file,'r')
+    return (title, output_file)
 
 def get_track_talks(filename):
     track_sessions = []
@@ -212,6 +213,7 @@ track2dir = {
 }
 
 def gen_obs_track_images(track_talks, output_track):
+    talk_scene = []
     missing_talks = []
     output_base_dir = 'track-ordered'
     for index, talk_title in enumerate(track_talks):
@@ -236,17 +238,19 @@ def gen_obs_track_images(track_talks, output_track):
             raise ValueError(f"Bad metadata - multiple matches for {talk_title}")
 
         if len(matching_talk) == 1:
-            gen_speaker_plus_slides(matching_talk[0], output_track, output_base_dir, '%02d_'%(index+1))
+            title, png_image = gen_speaker_plus_slides(matching_talk[0], output_track, output_base_dir, '%02d_'%(index+1))
+            talk_scene.append((title, png_image))
     if len(missing_talks)>0:
         raise ValueError(f"Missing talks {missing_talks}")
+    return talk_scene
 
 def gen_obs_track_images_from_schedule(output_track):
     track_talks = get_track_talks(f'track-lists/{output_track}.csv')
-    gen_obs_track_images(track_talks, output_track)
+    return gen_obs_track_images(track_talks, output_track)
 
 def gen_obs_track_images_for_devroom(output_track):
     track_talks = [ x.strip() for x in open(f'track-lists/{output_track}.txt','r').readlines() ]
-    gen_obs_track_images(track_talks, output_track)
+    return gen_obs_track_images(track_talks, output_track)
 
 parser = argparse.ArgumentParser()
 group = parser.add_mutually_exclusive_group(required=True)
@@ -254,10 +258,26 @@ group.add_argument("--track")
 group.add_argument("--devroom")
 args = parser.parse_args()
 
+def generate_scene(track, talk_scene):
+    csv_file = open(f"track-ordered/{track}/obs-scenes.csv", "w")
+    csv_writer = csv.writer(csv_file)
+    csv_writer.writerow(('scene_name', 'scene_type', 'png_file'))
+    for title, png_file in talk_scene:
+        # static, speakeronly, sidebyside
+        title_words = title.split(' ')
+        scene_title = ' '.join(title_words[:6])
+        this_row = [scene_title,'sidebyside', os.path.join('/home/foss/if25-video/obs',png_file)]
+        csv_writer.writerow(this_row)
+    csv_file.close()
+
 if args.devroom:
-    gen_obs_track_images_for_devroom(args.devroom)
+    talk_scene = gen_obs_track_images_for_devroom(args.devroom)
+    generate_scene(args.devroom, talk_scene)
+
 if args.track:
-    gen_obs_track_images_from_schedule(args.track)
+    talk_scene = gen_obs_track_images_from_schedule(args.track)
+    generate_scene(args.track, talk_scene)
+
 
 #gen_obs_track_images_for_devroom('aosp')
 #gen_obs_track_images_from_schedule('day2-audi2')
