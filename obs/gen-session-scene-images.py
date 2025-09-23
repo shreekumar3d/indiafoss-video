@@ -100,21 +100,6 @@ def gen_speaker_plus_slides(talk_info, track2dir, output_base_dir, file_prefix):
             speaker1_company2 = company_line[1]
         #print(speaker1_company1)
         #print(speaker1_company2)
-    template = open("templates/talk-presentation-section.svg","r").read()
-    template = template.replace('$TITLE-LINE1$', escape(title_line1))
-    template = template.replace('$TITLE-LINE2$', escape(title_line2))
-    template = template.replace('$TITLE-ONLY$', escape(title_only))
-    template = template.replace('$SPEAKER1$', escape(speaker1))
-    template = template.replace('$SPEAKER1-DESIGNATION$', escape(speaker1_designation))
-    template = template.replace('$SPEAKER1-COMPANY1$', escape(speaker1_company1))
-    template = template.replace('$SPEAKER1-COMPANY2$', escape(speaker1_company2))
-    template = template.replace('$SPEAKER2$', escape(speaker2))
-    template = template.replace('$SPEAKER2-DESIGNATION$', escape(speaker2_designation))
-    template = template.replace('$TEMPLATE-IMAGE-DIR$', template_image_dir, -1)
-
-    temp_svg = tempfile.NamedTemporaryFile(mode='w', delete=True)
-    temp_svg.write(template)
-    temp_svg.flush()
 
     track_dir = track2dir[track] if type(track2dir) is dict else track2dir
     track_dir = Path(os.path.join(output_base_dir, track_dir))
@@ -131,18 +116,63 @@ def gen_speaker_plus_slides(talk_info, track2dir, output_base_dir, file_prefix):
     output_file = output_file.replace('"','',-1)
     output_file = output_file.replace('?','',-1)
     output_file = output_file.replace('__','_',-1)
-    output_file = os.path.join(track_dir, file_prefix+output_file)
+
+    template = open("templates/talk-presentation-section.svg","r").read()
+    template = template.replace('$TITLE-LINE1$', escape(title_line1))
+    template = template.replace('$TITLE-LINE2$', escape(title_line2))
+    template = template.replace('$TITLE-ONLY$', escape(title_only))
+    template = template.replace('$SPEAKER1$', escape(speaker1))
+    template = template.replace('$SPEAKER1-DESIGNATION$', escape(speaker1_designation))
+    template = template.replace('$SPEAKER1-COMPANY1$', escape(speaker1_company1))
+    template = template.replace('$SPEAKER1-COMPANY2$', escape(speaker1_company2))
+    template = template.replace('$SPEAKER2$', escape(speaker2))
+    template = template.replace('$SPEAKER2-DESIGNATION$', escape(speaker2_designation))
+    template = template.replace('$TEMPLATE-IMAGE-DIR$', template_image_dir, -1)
+
+    temp_svg = tempfile.NamedTemporaryFile(mode='w', delete=True)
+    temp_svg.write(template)
+    temp_svg.flush()
+
+    output_file1 = os.path.join(track_dir, file_prefix+output_file)
     if talk_info['type']!='Panel Discussion':
         cmd = ['inkscape', '--export-type=png', '--export-width=1920',
-           '--export-height=1080', '--export-filename', output_file, temp_svg.name]
+           '--export-height=1080', '--export-filename', output_file1, temp_svg.name]
+        print(output_file1)
+        subprocess.run(cmd, check=True)
+        # ensure the file actually got created
+        open(output_file1,'r')
+    else:
+        output_file1 = None
+
+    template = open("templates/talk-qa-section.svg","r").read()
+    template = template.replace('$TITLE-LINE1$', escape(title_line1))
+    template = template.replace('$TITLE-LINE2$', escape(title_line2))
+    template = template.replace('$TITLE-ONLY$', escape(title_only))
+    template = template.replace('$SPEAKER1$', escape(speaker1))
+    template = template.replace('$SPEAKER1-DESIGNATION$', escape(speaker1_designation))
+    template = template.replace('$SPEAKER1-COMPANY1$', escape(speaker1_company1))
+    template = template.replace('$SPEAKER1-COMPANY2$', escape(speaker1_company2))
+    template = template.replace('$SPEAKER2$', escape(speaker2))
+    template = template.replace('$SPEAKER2-DESIGNATION$', escape(speaker2_designation))
+    template = template.replace('$TEMPLATE-IMAGE-DIR$', template_image_dir, -1)
+
+    temp_svg = tempfile.NamedTemporaryFile(mode='w', delete=True)
+    temp_svg.write(template)
+    temp_svg.flush()
+
+    output_file2 = os.path.join(track_dir, file_prefix+'qa-'+output_file)
+    if talk_info['type']!='Panel Discussion':
+        cmd = ['inkscape', '--export-type=png', '--export-width=1920',
+           '--export-height=1080', '--export-filename', output_file2, temp_svg.name]
     else:
         cmd = ['inkscape', '--export-type=png', '--export-width=1920',
-           '--export-height=1080', '--export-filename', output_file, track2panel_svg[title]]
-    print(output_file)
+           '--export-height=1080', '--export-filename', output_file2, track2panel_svg[title]]
+    print(output_file2)
     subprocess.run(cmd, check=True)
+    open(output_file2,'r')
+
     # ensure the file actually got created
-    open(output_file,'r')
-    return (title, output_file)
+    return (title, output_file1, output_file2)
 
 def get_track_talks(filename):
     track_sessions = []
@@ -238,8 +268,8 @@ def gen_obs_track_images(track_talks, output_track):
             raise ValueError(f"Bad metadata - multiple matches for {talk_title}")
 
         if len(matching_talk) == 1:
-            title, png_image = gen_speaker_plus_slides(matching_talk[0], output_track, output_base_dir, '%02d_'%(index+1))
-            talk_scene.append((title, png_image))
+            title, png_image, png_image_qa = gen_speaker_plus_slides(matching_talk[0], output_track, output_base_dir, '%02d_'%(index+1))
+            talk_scene.append((title, png_image, png_image_qa))
     if len(missing_talks)>0:
         raise ValueError(f"Missing talks {missing_talks}")
     return talk_scene
@@ -262,12 +292,16 @@ def generate_scene(track, talk_scene):
     csv_file = open(f"track-ordered/{track}/obs-scenes.csv", "w")
     csv_writer = csv.writer(csv_file)
     csv_writer.writerow(('scene_name', 'scene_type', 'png_file'))
-    for title, png_file in talk_scene:
+    for title, png_file, png_file_qa in talk_scene:
         # static, speakeronly, sidebyside
         title_words = title.split(' ')
         scene_title = ' '.join(title_words[:6])
-        this_row = [scene_title,'sidebyside', os.path.join('/home/foss/if25-video/obs',png_file)]
-        csv_writer.writerow(this_row)
+        if png_file:
+            this_row = [scene_title,'sidebyside', os.path.join('/home/foss/if25-video/obs',png_file)]
+            csv_writer.writerow(this_row)
+        if png_file_qa:
+            this_row = ['QA-%s'%(scene_title),'sidebyside', os.path.join('/home/foss/if25-video/obs',png_file_qa)]
+            csv_writer.writerow(this_row)
     csv_file.close()
 
 if args.devroom:
