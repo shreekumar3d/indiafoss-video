@@ -224,15 +224,15 @@ def master_video(vinfo):
 
 talk2 = ( 2,
      '../../obs/track-ordered/hardware/02_Jigita_jump_to_soldering.png',
-     '00:05:17', '00:05:27', '00:35:28'
+     '00:05:16', '00:05:27', '00:35:29'
 )
 talk3 = ( 3,
      '../../obs/track-ordered/hardware/03_VoltQuest_Open_Source_Hardware_Gaming.png',
-     '00:35:44', '00:37:35', '00:52:32'
+     '00:35:44', '00:37:35', '00:52:24'
 )
 talk4 = ( 4,
      '../../obs/track-ordered/hardware/04_Homelabbing_with_bare_metal.png',
-     '00:58:30', '01:00:00', '01:39:30'
+     '00:58:24', '01:00:00', '01:36:50'
 )
 talk5 = ( 5,
      '../../obs/track-ordered/hardware/05_CoryDora_A_Macropad_A_Supply.png',
