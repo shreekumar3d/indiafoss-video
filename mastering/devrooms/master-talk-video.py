@@ -21,7 +21,6 @@
 # - Initial parts use the fullscreen speaker video template.
 #   which later switches to slides+video
 #
-
 from datetime import timedelta
 from datetime import datetime
 import sys
@@ -57,35 +56,14 @@ def add_proc(cmd, capture_output=False):
         print(cmd[-1])
 
 def master_video(vinfo):
+    noise_profile = f'{devroom}/procam-noise-profile'
+
     talk_idx = vinfo[0]
     info_image = vinfo[1]
-    start1 = vinfo[2]
-    intro_end = vinfo[3]
-    seg_end = vinfo[4]
-
-    t_start1 = datetime.strptime(start1, '%H:%M:%S')
-    intro_end = datetime.strptime(intro_end, '%H:%M:%S')
-    seg_end = datetime.strptime(seg_end, '%H:%M:%S')
-    duration = seg_end-t_start1
-    duration = str(duration)
-    intro_dur = intro_end-t_start1
-    intro_dur = intro_dur.seconds
-
-    t_start2 = t_start1 + procam_offset
-    t_start1 = t_start1.strftime('%H:%M:%S.%f')[:-3]
-    t_start2 = t_start2.strftime('%H:%M:%S.%f')[:-3]
-    seg_end = seg_end.strftime('%H:%M:%S')
-    print('Talk ', talk_idx)
-    print('  Start : sv=', t_start1, ' procam=', t_start2)
-    print('  Length:', duration)
-    print('  Intro :', intro_dur, 'seconds')
 
     tpath = Path(f'mix/{devroom}/{talk_idx}')
     fpath = Path(f'mix/{devroom}')
     tpath.mkdir( parents=True, exist_ok=True)
-
-    noise_profile = f'{devroom}/procam-noise-profile'
-
     # MP4 av suffix means the file has both a/v
     # otherwise only video
     seg_vid_slides = f'{tpath}/seg_vid_slides.mp4'
@@ -99,13 +77,54 @@ def master_video(vinfo):
     seg_corrected_a = f'{tpath}/corrected_a.wav'
     seg_talk_av = f'{fpath}/{devroom}-{talk_idx}.mp4'
 
+
+    start_sv = datetime.strptime(vinfo[2], '%H:%M:%S')
+    end_sv = datetime.strptime(vinfo[-1], '%H:%M:%S')
+
+    print(vinfo[2:])
+
+    seg_duration = datetime.min + (end_sv-start_sv)
+    seg_duration = seg_duration.strftime('%H:%M:%S.%f')[:-3]
+    start_procam = start_sv + procam_offset
+
+    t_start_sv = start_sv.strftime('%H:%M:%S.%f')[:-3]
+    t_start_procam = start_procam.strftime('%H:%M:%S.%f')[:-3]
+    print('Talk ', talk_idx)
+    print(f'  Start : sv @ {t_start_sv} procam @ {t_start_procam}')
+    print(f'  Length: {seg_duration}')
+
+    overlap = 1 # 1 seconds between clips
+    is_first_seg = True
+    is_fs_video = True
+    seg_idx = 0
+    clips = []
+    for start_pos, end_pos in zip(vinfo[2:], vinfo[3:]):
+        st = datetime.strptime(start_pos, '%H:%M:%S')
+        et = datetime.strptime(end_pos, '%H:%M:%S')
+        # move start time by the video overlap on the
+        # second clip and beyond
+        if not is_first_seg:
+           st = st - timedelta(seconds=overlap)
+        offset_start = st - start_sv
+        duration_t = et-st
+        duration = datetime.min + duration_t
+        duration = duration.strftime('%H:%M:%S.%f')[:-3]
+        seg_fname = f'{tpath}/seg-{seg_idx}.mp4'
+        input_vfname = seg_speaker_only if is_fs_video else seg_vid_slides_realign
+        this_clip = [seg_idx, input_vfname, offset_start, duration, seg_fname]
+        print('  clip = ', this_clip)
+        clips.append(this_clip)
+        is_first_seg = False
+        is_fs_video = not is_fs_video # alternate clips
+        seg_idx += 1
+
     set_skip_proc(True)
     set_skip_proc(False)
 
     # Cut out a segment (of interest) of the two source videos
     # no audio needed from livestream
-    add_proc(['ffmpeg', '-i', vid_slides, '-ss', t_start1, '-t', duration, '-an', '-c:v', 'copy', '-y', seg_vid_slides])
-    add_proc(['ffmpeg', '-i', vid_procam, '-ss', t_start2, '-t', duration, '-c', 'copy', '-y', seg_procam_av])
+    add_proc(['ffmpeg', '-i', vid_slides, '-ss', t_start_sv, '-t', seg_duration, '-an', '-c:v', 'copy', '-y', seg_vid_slides])
+    add_proc(['ffmpeg', '-i', vid_procam, '-ss', t_start_procam, '-t', seg_duration, '-c', 'copy', '-y', seg_procam_av])
 
     # Cut out the segment - combined with the fullscreen template
     add_proc(['ffmpeg', '-i', seg_procam_av, '-i', fullscreen_template, '-an',
@@ -132,22 +151,6 @@ def master_video(vinfo):
               mix_video,
               '-map', '[outv]',
               '-y', seg_vid_slides_realign
-    ])
-
-    # Interleave fullscreen video and OBS templated video
-    # First few seconds of fullscreen makes thing a bit interesting
-    # and give the viewers a good idea of who the speaker is,
-    # plus serves well to capture the intro bits
-    fs_video = f'[0:v]trim=0:{intro_dur},setpts=PTS-STARTPTS[v0];'
-    pres_video = f'[1:v]trim={intro_dur},setpts=PTS-STARTPTS[v1];'
-    interleave = '[v0][v1]concat=n=2:v=1:[outv]'
-    add_proc(['ffmpeg', '-i', seg_speaker_only, '-i', seg_vid_slides_realign,
-              '-filter_complex',
-              fs_video +
-              pres_video +
-              interleave,
-              '-map', '[outv]',
-              '-y', seg_interleaved
     ])
 
     # Extract only the audio
@@ -213,6 +216,38 @@ def master_video(vinfo):
                   '-y', seg_corrected_a
         ])
 
+    # Generate all the cuts of the video files
+    for seg_idx, src_vfile, start, duration, out_vfile in clips:
+        add_proc(['ffmpeg',
+                  '-i', src_vfile,
+                  '-ss', str(start), '-t', duration,
+                  '-an',
+                  '-y', out_vfile
+        ])
+
+    # Merge the cuts into one video with crossfades!
+    src_vid = "[0:v]"
+    filter_complex = ""
+    stitch_cmd = ['ffmpeg']
+    stitch_cmd.append('-i')
+    stitch_cmd.append(clips[0][-1])
+    for seg_idx, src_vfile, start, duration, out_vfile in clips[1:]:
+        next_src_vid = f"vfade{seg_idx}"
+        filter_complex += f"{src_vid}[{seg_idx}:v]xfade=transition=fade:duration={overlap}:offset={start.seconds}[{next_src_vid}];"
+        stitch_cmd.append('-i')
+        stitch_cmd.append(out_vfile)
+        src_vid = f'[{next_src_vid}]'
+    stitch_cmd.append('-filter_complex')
+    stitch_cmd.append(filter_complex)
+    stitch_cmd.append('-map')
+    stitch_cmd.append(f'{src_vid}')
+    stitch_cmd.append('-movflags')
+    stitch_cmd.append('+faststart')
+    stitch_cmd.append('-y')
+    stitch_cmd.append(seg_interleaved)
+    pprint(stitch_cmd)
+    add_proc(stitch_cmd)
+
     # Add corrected audio to interleaved slide video
     add_proc(['ffmpeg',
               '-i', seg_interleaved,
@@ -222,29 +257,33 @@ def master_video(vinfo):
               '-y', seg_talk_av
     ])
 
-talk2 = ( 2,
+talk2 = [ 2,
      '../../obs/track-ordered/hardware/02_Jigita_jump_to_soldering.png',
-     '00:05:16', '00:05:27', '00:35:29'
-)
+         '00:05:16', '00:05:27', '00:34:10', '00:35:29'
+]
 talk3 = ( 3,
      '../../obs/track-ordered/hardware/03_VoltQuest_Open_Source_Hardware_Gaming.png',
      '00:35:44', '00:37:35', '00:52:24'
 )
 talk4 = ( 4,
      '../../obs/track-ordered/hardware/04_Homelabbing_with_bare_metal.png',
-     '00:58:24', '01:00:00', '01:36:50'
+     '00:58:24', '01:00:00', '01:00:30', '01:02:20',
+     '01:04:00', '01:04:29', '01:04:50', '01:05:23',
+     '01:06:35', '01:14:10', '01:15:30', '01:16:00',
+     '01:17:00', '01:19:30', '01:23:40', '01:26:38',
+     '01:27:20', '01:29:13', '1:36:45'
 )
 talk5 = ( 5,
      '../../obs/track-ordered/hardware/05_CoryDora_A_Macropad_A_Supply.png',
-     '01:40:00', '01:40:42', '02:09:37'
+         '01:40:00', '01:40:42', '02:09:13', '02:09:37'
 )
 talk6 = ( 6,
      '../../obs/track-ordered/hardware/06_Makerville_Badge.png',
-     '02:11:50', '02:12:00', '02:37:36'
+         '02:11:50', '02:12:00', '02:37:22', '02:37:36'
 )
 talk7 = ( 7,
      '../../obs/track-ordered/hardware/07_Because_Glancing_at_Your_Phone.png',
-     '02:38:40', '02:39:06', '02:57:05'
+         '02:38:40', '02:39:06', '02:55:00','02:57:05'
 )
 
 master_video(talk2)
