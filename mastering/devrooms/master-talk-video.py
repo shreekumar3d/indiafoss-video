@@ -31,13 +31,6 @@ import re
 import json
 import argparse
 
-procam_offset = timedelta( seconds=12, milliseconds=872)
-devroom = 'open-hardware'
-vid_slides = f'{devroom}/localrec.mkv'
-vid_procam = f'{devroom}/procam.mp4'
-fullscreen_template = 'overlay-video-full-screen.png'
-nr_factor ='0.2' # Amount of NR
-
 # Iterative development flag
 skip_proc = False
 
@@ -59,11 +52,21 @@ def add_proc(message, cmd, capture_output=False, verbose=False):
         else:
             subprocess.run(cmd, capture_output=True, text=True, check=True)
 
-def master_video(vinfo, verbose=False):
-    noise_profile = f'{devroom}/procam-noise-profile'
+def master_video(cfg, this_talk, verbose=False):
+    devroom = cfg['devroom']
+    noise_profile_file = cfg["noise-profile"]
+    noise_profile = f'{devroom}/{noise_profile_file}'
 
-    talk_idx = vinfo[0]
-    info_image = vinfo[1]
+    livestream = cfg['livestream']
+    procam = cfg['vcam']
+    vid_slides = f'{devroom}/{livestream}'
+    vid_procam = f'{devroom}/{procam}'
+    nr_factor = cfg['proc']['noise-reduction']
+    procam_offset = timedelta(seconds=cfg['proc']['vcam-offset'])
+
+    talk_idx = this_talk['index']
+    info_image = this_talk['info-image']
+    fullscreen_template = this_talk['fullscreen-template']
 
     tpath = Path(f'mix/{devroom}/{talk_idx}')
     fpath = Path(f'mix/{devroom}')
@@ -81,9 +84,9 @@ def master_video(vinfo, verbose=False):
     seg_corrected_a = f'{tpath}/corrected_a.wav'
     seg_talk_av = f'{fpath}/{devroom}-{talk_idx}.mp4'
 
-
-    start_sv = datetime.strptime(vinfo[2], '%H:%M:%S')
-    end_sv = datetime.strptime(vinfo[-1], '%H:%M:%S')
+    video_cuts = this_talk['cuts']
+    start_sv = datetime.strptime(video_cuts[0], '%H:%M:%S')
+    end_sv = datetime.strptime(video_cuts[-1], '%H:%M:%S')
 
     seg_duration = datetime.min + (end_sv-start_sv)
     seg_duration = seg_duration.strftime('%H:%M:%S.%f')[:-3]
@@ -92,15 +95,17 @@ def master_video(vinfo, verbose=False):
     t_start_sv = start_sv.strftime('%H:%M:%S.%f')[:-3]
     t_start_procam = start_procam.strftime('%H:%M:%S.%f')[:-3]
     print('Talk ', talk_idx)
+    print(f'  Video Offset : {cfg["proc"]["vcam-offset"]}')
     print(f'  Start : sv @ {t_start_sv} procam @ {t_start_procam}')
     print(f'  Length: {seg_duration}')
+    print(f'  Noise Reduction : {nr_factor}')
 
-    overlap = 1 # 1 seconds between clips
+    overlap = cfg["proc"]["overlap"] # in seconds between clips
     is_first_seg = True
     is_fs_video = True
     seg_idx = 0
     clips = []
-    for start_pos, end_pos in zip(vinfo[2:], vinfo[3:]):
+    for start_pos, end_pos in zip(video_cuts, video_cuts[1:]):
         st = datetime.strptime(start_pos, '%H:%M:%S')
         et = datetime.strptime(end_pos, '%H:%M:%S')
         # move start time by the video overlap on the
@@ -160,10 +165,18 @@ def master_video(vinfo, verbose=False):
     #  - OBS template with speaker info
     # into one video
     #
-    slides='[1:v]crop=1568:882:350:1,scale=1436:808[v1];'
-    video='[2:v]crop=810:1080:555:0,scale=360:480[v2];'
-    mix_slides='[0:v][v1]overlay=42:124[mix1];'
-    mix_video='[mix1][v2]overlay=1518:234[outv]'
+    slides_cw, slides_ch = cfg['proc']['slides']['crop']['wh']
+    slides_cx, slides_cy = cfg['proc']['slides']['crop']['xy']
+    slides_sx, slides_sy = cfg['proc']['slides']['scale']
+    slides_px, slides_py = cfg['proc']['slides']['position']
+    video_cw, video_ch = cfg['proc']['video']['crop']['wh']
+    video_cx, video_cy = cfg['proc']['video']['crop']['xy']
+    video_sx, video_sy = cfg['proc']['video']['scale']
+    video_px, video_py = cfg['proc']['video']['position']
+    slides=f'[1:v]crop={slides_cw}:{slides_ch}:{slides_cx}:{slides_cy},scale={slides_sx}:{slides_sy}[v1];'
+    video=f'[2:v]crop={video_cw}:{video_ch}:{video_cx}:{video_cy},scale={video_sx}:{video_sy}[v2];'
+    mix_slides=f'[0:v][v1]overlay={slides_px}:{slides_py}[mix1];'
+    mix_video=f'[mix1][v2]overlay={video_px}:{video_py}[outv]'
     add_proc('Regenerating slides+camera video...',
              ['ffmpeg', '-i', info_image, '-i', seg_vid_slides, '-i', seg_procam_av,
               '-filter_complex',
@@ -194,7 +207,7 @@ def master_video(vinfo, verbose=False):
               '--multi-threaded',
               seg_procam_a, seg_procam_nn_a,
               'noisered', noise_profile,
-              nr_factor
+              str(nr_factor)
              ],
              verbose = verbose
     )
@@ -306,43 +319,26 @@ def master_video(vinfo, verbose=False):
     print('DONE!')
     print(f'Output generated : {seg_talk_av}')
 
-# Definition of segments
-talk2 = ( 2,
-     '../../obs/track-ordered/hardware/02_Jigita_jump_to_soldering.png',
-         '00:05:16', '00:05:27', '00:34:10', '00:35:29'
-)
-talk3 = ( 3,
-     '../../obs/track-ordered/hardware/03_VoltQuest_Open_Source_Hardware_Gaming.png',
-     '00:35:44', '00:37:35', '00:52:24'
-)
-talk4 = ( 4,
-     '../../obs/track-ordered/hardware/04_Homelabbing_with_bare_metal.png',
-     '00:58:24', '01:00:00', '01:00:30', '01:02:20',
-     '01:04:00', '01:04:29', '01:04:50', '01:05:23',
-     '01:06:35', '01:14:10', '01:15:30', '01:16:00',
-     '01:17:00', '01:19:30', '01:23:40', '01:26:38',
-     '01:27:20', '01:29:13', '1:36:45'
-)
-talk5 = ( 5,
-     '../../obs/track-ordered/hardware/05_CoryDora_A_Macropad_A_Supply.png',
-         '01:40:00', '01:40:42', '02:09:13', '02:09:37'
-)
-talk6 = ( 6,
-     '../../obs/track-ordered/hardware/06_Makerville_Badge.png',
-         '02:11:50', '02:12:00', '02:37:22', '02:37:36'
-)
-talk7 = ( 7,
-     '../../obs/track-ordered/hardware/07_Because_Glancing_at_Your_Phone.png',
-         '02:38:40', '02:39:06', '02:55:00','02:57:05'
-)
-
 parser = argparse.ArgumentParser()
-parser.add_argument('--verbose', '-v', action='store_true', default=False)
+parser.add_argument("devroom_json", help="""
+    Devroom configuration file (json).
+""")
+parser.add_argument('--verbose', '-v', action='store_true', default=False, help="""
+    Enable verbose messages, showing ffmpeg execution, progress, warnings, etc.
+""")
+parser.add_argument('--index', '-i', type=int, help="""
+    Generate video only for talk having this index in the json file. If not
+    specified, all talk videos are processed.
+""")
 args = parser.parse_args()
 
-master_video(talk2, args.verbose)
-master_video(talk3, args.verbose)
-master_video(talk4, args.verbose)
-master_video(talk5, args.verbose)
-master_video(talk6, args.verbose)
-master_video(talk7, args.verbose)
+cfg = json.loads(open(args.devroom_json,'r').read())
+
+if args.index:
+    for talk in cfg['talks']:
+        if args.index == talk['index']:
+            master_video(cfg, talk, args.verbose)
+            break
+else:
+    for talk in cfg['talks']:
+        master_video(cfg, talk, args.verbose)
