@@ -36,6 +36,7 @@ devroom = 'open-hardware'
 vid_slides = f'{devroom}/localrec.mkv'
 vid_procam = f'{devroom}/procam.mp4'
 fullscreen_template = 'overlay-video-full-screen.png'
+nr_factor ='0.2' # Amount of NR
 
 # Iterative development flag
 skip_proc = False
@@ -44,17 +45,16 @@ def set_skip_proc(state):
     global skip_proc
     skip_proc = state
 
-def add_proc(args, capture_output=False):
+def add_proc(cmd, capture_output=False):
     global skip_proc
     if skip_proc:
         return None
-    cmd = ['ffmpeg']+args
     if capture_output:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         return result
     else:
         subprocess.run(cmd, check=True)
-        print(args[-1])
+        print(cmd[-1])
 
 def master_video(vinfo):
     talk_idx = vinfo[0]
@@ -84,11 +84,14 @@ def master_video(vinfo):
     fpath = Path(f'mix/{devroom}')
     tpath.mkdir( parents=True, exist_ok=True)
 
+    noise_profile = f'{devroom}/procam-noise-profile'
+
     # MP4 av suffix means the file has both a/v
     # otherwise only video
     seg_vid_slides = f'{tpath}/seg_vid_slides.mp4'
     seg_procam_av = f'{tpath}/seg_procam.mp4'
     seg_procam_a = f'{tpath}/seg_procam.wav'
+    seg_procam_nn_a = f'{tpath}/seg_procam_nn.wav'
     seg_speaker_only = f'{tpath}/seg_speaker_only.mp4'
     seg_vid_slides_realign = f'{tpath}/seg_vid_slides_realign.mp4'
     seg_interleaved = f'{tpath}/seg_interleaved.mp4'
@@ -101,11 +104,11 @@ def master_video(vinfo):
 
     # Cut out a segment (of interest) of the two source videos
     # no audio needed from livestream
-    add_proc(['-i', vid_slides, '-ss', t_start1, '-t', duration, '-an', '-c:v', 'copy', '-y', seg_vid_slides])
-    add_proc(['-i', vid_procam, '-ss', t_start2, '-t', duration, '-c', 'copy', '-y', seg_procam_av])
+    add_proc(['ffmpeg', '-i', vid_slides, '-ss', t_start1, '-t', duration, '-an', '-c:v', 'copy', '-y', seg_vid_slides])
+    add_proc(['ffmpeg', '-i', vid_procam, '-ss', t_start2, '-t', duration, '-c', 'copy', '-y', seg_procam_av])
 
     # Cut out the segment - combined with the fullscreen template
-    add_proc(['-i', seg_procam_av, '-i', fullscreen_template, '-an',
+    add_proc(['ffmpeg', '-i', seg_procam_av, '-i', fullscreen_template, '-an',
               '-filter_complex',
               '[0:v][1:v]overlay=0:0',
               '-y', seg_speaker_only
@@ -121,7 +124,7 @@ def master_video(vinfo):
     video='[2:v]crop=810:1080:555:0,scale=360:480[v2];'
     mix_slides='[0:v][v1]overlay=42:124[mix1];'
     mix_video='[mix1][v2]overlay=1518:234[outv]'
-    add_proc(['-i', info_image, '-i', seg_vid_slides, '-i', seg_procam_av,
+    add_proc(['ffmpeg', '-i', info_image, '-i', seg_vid_slides, '-i', seg_procam_av,
               '-filter_complex',
               slides +
               video +
@@ -138,7 +141,7 @@ def master_video(vinfo):
     fs_video = f'[0:v]trim=0:{intro_dur},setpts=PTS-STARTPTS[v0];'
     pres_video = f'[1:v]trim={intro_dur},setpts=PTS-STARTPTS[v1];'
     interleave = '[v0][v1]concat=n=2:v=1:[outv]'
-    add_proc(['-i', seg_speaker_only, '-i', seg_vid_slides_realign,
+    add_proc(['ffmpeg', '-i', seg_speaker_only, '-i', seg_vid_slides_realign,
               '-filter_complex',
               fs_video +
               pres_video +
@@ -147,18 +150,34 @@ def master_video(vinfo):
               '-y', seg_interleaved
     ])
 
-    # Lowpass filter with 3k Hz to get rid of ringing noises
+    # Extract only the audio
+    add_proc(['ffmpeg',
+              '-i', seg_procam_av,
+              '-vn',
+              '-acodec', 'pcm_s16le',
+              '-y', seg_procam_a
+    ])
+
+    # Denoise audio using existing profile
+    add_proc(['sox',
+              '--multi-threaded',
+              seg_procam_a, seg_procam_nn_a,
+              'noisered', noise_profile,
+              nr_factor
+    ])
+
     # camera audio is mono - replicate in both L/R for better
     # volume
-    add_proc(['-i', seg_procam_av,
-              '-vn',
-              '-af', 'pan=stereo|FL=FL|FR=FL,lowpass=f=3000',
+    add_proc(['ffmpeg',
+              '-i', seg_procam_nn_a,
+              '-af', 'pan=stereo|FL=FL|FR=FL',
               '-acodec', 'pcm_s16le',
               '-y', seg_filtered_a
     ])
 
     # Measure audio characteristics using loudnorm
-    result = add_proc(['-i', seg_filtered_a,
+    result = add_proc(['ffmpeg',
+                       '-i', seg_filtered_a,
                        '-filter:a', 'loudnorm=print_format=json',
                        '-f', 'null', '/dev/null'
                       ],
@@ -186,7 +205,8 @@ def master_video(vinfo):
         # video recommended level is -23, but that turns out to be low
         # for desktops and phones - but pretty good for TVs
         # (you can see this in the VU meter in audacity)
-        add_proc(['-i', seg_filtered_a,
+        add_proc(['ffmpeg',
+                  '-i', seg_filtered_a,
                   '-af',
                   f'loudnorm={loudnorm}',
                   '-ar', '48000', # loudnorm upsamples to 96kHz+
@@ -194,7 +214,8 @@ def master_video(vinfo):
         ])
 
     # Add corrected audio to interleaved slide video
-    add_proc(['-i', seg_interleaved,
+    add_proc(['ffmpeg',
+              '-i', seg_interleaved,
               '-i', seg_corrected_a,
               '-map', '0:v:0',
               '-map', '1:a:0',
