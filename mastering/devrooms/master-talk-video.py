@@ -29,6 +29,7 @@ from pathlib import Path
 from pprint import pprint
 import re
 import json
+import argparse
 
 procam_offset = timedelta( seconds=12, milliseconds=872)
 devroom = 'open-hardware'
@@ -44,18 +45,21 @@ def set_skip_proc(state):
     global skip_proc
     skip_proc = state
 
-def add_proc(cmd, capture_output=False):
+def add_proc(message, cmd, capture_output=False, verbose=False):
     global skip_proc
+    print(message)
     if skip_proc:
         return None
     if capture_output:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         return result
     else:
-        subprocess.run(cmd, check=True)
-        print(cmd[-1])
+        if verbose:
+            subprocess.run(cmd, check=True)
+        else:
+            subprocess.run(cmd, capture_output=True, text=True, check=True)
 
-def master_video(vinfo):
+def master_video(vinfo, verbose=False):
     noise_profile = f'{devroom}/procam-noise-profile'
 
     talk_idx = vinfo[0]
@@ -80,8 +84,6 @@ def master_video(vinfo):
 
     start_sv = datetime.strptime(vinfo[2], '%H:%M:%S')
     end_sv = datetime.strptime(vinfo[-1], '%H:%M:%S')
-
-    print(vinfo[2:])
 
     seg_duration = datetime.min + (end_sv-start_sv)
     seg_duration = seg_duration.strftime('%H:%M:%S.%f')[:-3]
@@ -123,15 +125,34 @@ def master_video(vinfo):
 
     # Cut out a segment (of interest) of the two source videos
     # no audio needed from livestream
-    add_proc(['ffmpeg', '-i', vid_slides, '-ss', t_start_sv, '-t', seg_duration, '-an', '-c:v', 'copy', '-y', seg_vid_slides])
-    add_proc(['ffmpeg', '-i', vid_procam, '-ss', t_start_procam, '-t', seg_duration, '-c', 'copy', '-y', seg_procam_av])
+    add_proc('Cutting livestream...',
+             ['ffmpeg',
+              '-i', vid_slides,
+              '-ss', t_start_sv, '-t', seg_duration,
+              '-an', '-c:v', 'copy',
+              '-y', seg_vid_slides
+             ],
+             verbose = verbose
+    )
+    add_proc('Cutting camera video...',
+             ['ffmpeg',
+              '-i', vid_procam,
+              '-ss', t_start_procam, '-t', seg_duration,
+              '-c', 'copy', 
+              '-y', seg_procam_av
+             ],
+             verbose = verbose
+    )
 
     # Cut out the segment - combined with the fullscreen template
-    add_proc(['ffmpeg', '-i', seg_procam_av, '-i', fullscreen_template, '-an',
+    add_proc('Generating fullscreen video...',
+             ['ffmpeg', '-i', seg_procam_av, '-i', fullscreen_template, '-an',
               '-filter_complex',
               '[0:v][1:v]overlay=0:0',
               '-y', seg_speaker_only
-    ])
+             ],
+             verbose = verbose
+    )
 
     # Create a video that stuffs
     #  - procam video
@@ -143,7 +164,8 @@ def master_video(vinfo):
     video='[2:v]crop=810:1080:555:0,scale=360:480[v2];'
     mix_slides='[0:v][v1]overlay=42:124[mix1];'
     mix_video='[mix1][v2]overlay=1518:234[outv]'
-    add_proc(['ffmpeg', '-i', info_image, '-i', seg_vid_slides, '-i', seg_procam_av,
+    add_proc('Regenerating slides+camera video...',
+             ['ffmpeg', '-i', info_image, '-i', seg_vid_slides, '-i', seg_procam_av,
               '-filter_complex',
               slides +
               video +
@@ -151,40 +173,53 @@ def master_video(vinfo):
               mix_video,
               '-map', '[outv]',
               '-y', seg_vid_slides_realign
-    ])
+             ],
+             verbose = verbose
+    )
 
     # Extract only the audio
-    add_proc(['ffmpeg',
+    add_proc('Extracting audio track...',
+             ['ffmpeg',
               '-i', seg_procam_av,
               '-vn',
               '-acodec', 'pcm_s16le',
               '-y', seg_procam_a
-    ])
+             ],
+             verbose = verbose
+    )
 
     # Denoise audio using existing profile
-    add_proc(['sox',
+    add_proc('Denoising audio track...',
+             ['sox',
               '--multi-threaded',
               seg_procam_a, seg_procam_nn_a,
               'noisered', noise_profile,
               nr_factor
-    ])
+             ],
+             verbose = verbose
+    )
 
     # camera audio is mono - replicate in both L/R for better
     # volume
-    add_proc(['ffmpeg',
+    add_proc('Replicating R=L in audio track...',
+             ['ffmpeg',
               '-i', seg_procam_nn_a,
               '-af', 'pan=stereo|FL=FL|FR=FL',
               '-acodec', 'pcm_s16le',
               '-y', seg_filtered_a
-    ])
+             ],
+             verbose = verbose
+    )
 
     # Measure audio characteristics using loudnorm
-    result = add_proc(['ffmpeg',
+    result = add_proc('Measuring loudness of audio track...',
+                      ['ffmpeg',
                        '-i', seg_filtered_a,
                        '-filter:a', 'loudnorm=print_format=json',
                        '-f', 'null', '/dev/null'
                       ],
-                      capture_output = True
+                      capture_output = True,
+                      verbose = verbose
                      )
     #print(result.stderr)
     #open('/tmp/info','w').write(result.stderr)
@@ -208,22 +243,28 @@ def master_video(vinfo):
         # video recommended level is -23, but that turns out to be low
         # for desktops and phones - but pretty good for TVs
         # (you can see this in the VU meter in audacity)
-        add_proc(['ffmpeg',
+        add_proc('Normalizing audio volume...',
+                 ['ffmpeg',
                   '-i', seg_filtered_a,
                   '-af',
                   f'loudnorm={loudnorm}',
                   '-ar', '48000', # loudnorm upsamples to 96kHz+
                   '-y', seg_corrected_a
-        ])
+                 ],
+                 verbose=verbose
+        )
 
     # Generate all the cuts of the video files
     for seg_idx, src_vfile, start, duration, out_vfile in clips:
-        add_proc(['ffmpeg',
+        add_proc(f'Generating segment {seg_idx} start={str(start)} duration={duration}',
+                 ['ffmpeg',
                   '-i', src_vfile,
                   '-ss', str(start), '-t', duration,
                   '-an',
                   '-y', out_vfile
-        ])
+                 ],
+                 verbose=verbose
+        )
 
     # Merge the cuts into one video with crossfades!
     src_vid = "[0:v]"
@@ -245,22 +286,31 @@ def master_video(vinfo):
     stitch_cmd.append('+faststart')
     stitch_cmd.append('-y')
     stitch_cmd.append(seg_interleaved)
-    pprint(stitch_cmd)
-    add_proc(stitch_cmd)
+    if verbose:
+        pprint(stitch_cmd)
+    add_proc('Merging video segments with crossfades...',
+             stitch_cmd,
+             verbose=verbose)
 
     # Add corrected audio to interleaved slide video
-    add_proc(['ffmpeg',
+    add_proc('Merging corrected audio into video to generate FINAL VIDEO...',
+             ['ffmpeg',
               '-i', seg_interleaved,
               '-i', seg_corrected_a,
               '-map', '0:v:0',
               '-map', '1:a:0',
               '-y', seg_talk_av
-    ])
+             ],
+             verbose=verbose
+    )
+    print('DONE!')
+    print(f'Output generated : {seg_talk_av}')
 
-talk2 = [ 2,
+# Definition of segments
+talk2 = ( 2,
      '../../obs/track-ordered/hardware/02_Jigita_jump_to_soldering.png',
          '00:05:16', '00:05:27', '00:34:10', '00:35:29'
-]
+)
 talk3 = ( 3,
      '../../obs/track-ordered/hardware/03_VoltQuest_Open_Source_Hardware_Gaming.png',
      '00:35:44', '00:37:35', '00:52:24'
@@ -286,9 +336,13 @@ talk7 = ( 7,
          '02:38:40', '02:39:06', '02:55:00','02:57:05'
 )
 
-master_video(talk2)
-master_video(talk3)
-master_video(talk4)
-master_video(talk5)
-master_video(talk6)
-master_video(talk7)
+parser = argparse.ArgumentParser()
+parser.add_argument('--verbose', '-v', action='store_true', default=False)
+args = parser.parse_args()
+
+master_video(talk2, args.verbose)
+master_video(talk3, args.verbose)
+master_video(talk4, args.verbose)
+master_video(talk5, args.verbose)
+master_video(talk6, args.verbose)
+master_video(talk7, args.verbose)
