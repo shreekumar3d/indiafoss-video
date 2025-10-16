@@ -62,7 +62,8 @@ def master_video(cfg, this_talk, verbose=False):
     vid_slides = f'{devroom}/{livestream}'
     vid_procam = f'{devroom}/{procam}'
     nr_factor = cfg['proc']['noise-reduction']
-    procam_offset = timedelta(seconds=cfg['proc']['vcam-offset'])
+    offset = cfg['proc']['vcam-offset']
+    procam_offset = timedelta(seconds=abs(offset))
 
     talk_idx = this_talk['index']
     info_image = this_talk['info-image']
@@ -90,7 +91,10 @@ def master_video(cfg, this_talk, verbose=False):
 
     seg_duration = datetime.min + (end_sv-start_sv)
     seg_duration = seg_duration.strftime('%H:%M:%S.%f')[:-3]
-    start_procam = start_sv + procam_offset
+    if offset < 0:
+        start_procam = start_sv - procam_offset
+    else:
+        start_procam = start_sv + procam_offset
 
     t_start_sv = start_sv.strftime('%H:%M:%S.%f')[:-3]
     t_start_procam = start_procam.strftime('%H:%M:%S.%f')[:-3]
