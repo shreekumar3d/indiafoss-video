@@ -1,0 +1,83 @@
+{
+  "devroom"         : "foss-in-science",
+  "livestream"      : "ytlive-rescale-hd.mp4",
+  "vcam"            : "procam-1.mp4",
+  "noise-profile"   : "procam-1-noise-profile",
+
+  "proc" : {
+
+    "vcam-offset"     : -985.907,
+
+    "noise-reduction" : 0.2,
+
+    "overlap" : 1,
+
+    "slides" : {
+      "crop"  : {
+        "xy" : [42, 124],
+	"wh" : [1436, 808]
+      },
+      "scale"    : [1436, 808],
+      "position" :  [42, 124]
+    },
+
+    "video" : {
+      "crop"  : {
+        "xy" : [555, 0],
+	"wh" : [810, 1080]
+      },
+      "scale"    : [360, 480],
+      "position" :  [1518, 234]
+    }
+  },
+  "talks" : [
+    {
+      "index" : 1,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/science/01_KuttyPy_A_no_Cost_transformation.png",
+      "cuts" : [
+         "00:16:26", "00:18:22", "00:34:47", "00:38:35"
+      ]
+    },
+    {
+      "index" : 2,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/science/07_Understanding_API_Dispatching_in_Scientific.png",
+      "cuts" : [
+         "00:39:00", "00:40:20", "00:50:03", "00:50:08"
+      ]
+    },
+    {
+      "index" : 3,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/science/02_The_Array_API_Standard_One.png",
+      "cuts" : [
+         "00:50:09", "00:50:55", "00:56:03", "00:56:27"
+      ]
+    },
+    {
+      "index" : 4,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/science/03_Zarr_Cloudoptimised_Ndimensional_typed_array.png",
+      "cuts" : [
+         "00:56:29", "00:57:20", "01:05:50", "01:06:03"
+      ]
+    },
+    {
+      "index" : 5,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/science/06_Assessing_the_State_of_India's.png",
+      "cuts" : [
+         "01:06:05", "01:07:06", "01:17:23"
+      ]
+    },
+    {
+      "index" : 6,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/science/08_Collaborative_CAD_&_GIS_in.png",
+      "cuts" : [
+         "01:17:27", "01:18:10", "01:41:47", "01:44:40"
+      ]
+    }
+  ]
+}

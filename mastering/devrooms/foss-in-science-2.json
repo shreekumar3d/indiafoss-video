@@ -1,0 +1,91 @@
+{
+  "devroom"         : "foss-in-science",
+  "livestream"      : "ytlive-rescale-hd.mp4",
+  "vcam"            : "procam-2.mp4",
+  "noise-profile"   : "procam-1-noise-profile",
+
+  "proc" : {
+
+    "vcam-offset"     : -7112.42,
+
+    "noise-reduction" : 0.2,
+
+    "overlap" : 1,
+
+    "slides" : {
+      "crop"  : {
+        "xy" : [42, 124],
+	"wh" : [1436, 808]
+      },
+      "scale"    : [1436, 808],
+      "position" :  [42, 124]
+    },
+
+    "video" : {
+      "crop"  : {
+        "xy" : [555, 0],
+	"wh" : [810, 1080]
+      },
+      "scale"    : [360, 480],
+      "position" :  [1518, 234]
+    }
+  },
+  "talks" : [
+    {
+      "index" : 7,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/day1-audi2/11_The_CoRE_stack_opensource_initiative.png",
+      "cuts" : [
+         "01:58:33", "01:58:56", "02:23:40", "02:25:06"
+      ]
+    },
+    {
+      "index" : 8,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/science/10_Formalizing_Mathematics_and_Scientific_Computing.png",
+      "cuts" : [
+         "02:25:07", "02:26:10", "02:39:05"
+      ]
+    },
+    {
+      "index" : 9,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/science/11_Empowering_Open_Science_with_Scalable.png",
+      "cuts" : [
+         "02:39:07", "02:39:40", "02:48:58", "02:52:12"
+      ]
+    },
+    {
+      "index" : 10,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/science/05_Beyond_the_smokescreen_Interactive_inbrowser.png",
+      "cuts" : [
+         "02:58:14", "02:58:50", "03:07:52"
+      ]
+    },
+    {
+      "index" : 11,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/science/12_The_Observability_of_Everything_Instrumenting.png",
+      "cuts" : [
+         "03:07:56", "03:09:30", "03:19:10", "03:21:37"
+      ]
+    },
+    {
+      "index" : 12,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/science/13_Breaking_into_the_Black_Box.png",
+      "cuts" : [
+         "03:21:38", "03:22:35", "03:29:46", "03:30:18"
+      ]
+    },
+    {
+      "index" : 13,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/science/14_Signal_Over_Noise_Benchmarking_Time.png",
+      "cuts" : [
+         "03:30:19", "03:33:35", "03:41:24", "03:43:17"
+      ]
+    }
+  ]
+}
