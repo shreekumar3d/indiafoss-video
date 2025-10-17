@@ -1,0 +1,68 @@
+{
+  "devroom"         : "aosp",
+  "livestream"      : "localrec-2.mkv",
+  "vcam"            : "procam-2.mp4",
+  "noise-profile"   : "procam-2-noise-profile",
+
+  "proc" : {
+
+    "vcam-offset"     : -128.60975,
+
+    "noise-reduction" : 0.2,
+
+    "overlap" : 1,
+
+    "slides" : {
+      "crop"  : {
+        "xy" : [350, 1],
+	"wh" : [1568, 882]
+      },
+      "scale"    : [1436, 808],
+      "position" :  [42, 124]
+    },
+
+    "video" : {
+      "crop"  : {
+        "xy" : [555, 0],
+	"wh" : [810, 1080]
+      },
+      "scale"    : [360, 480],
+      "position" :  [1518, 234]
+    }
+  },
+
+  "talks" : [
+    {
+      "index" : 6,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/aosp/06_AOSP_E2E_Internals_Security_Optimization.png",
+      "cuts" : [
+         "00:02:24", "00:03:00", "00:16:22"
+      ]
+    },
+    {
+      "index" : 7,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/aosp/07_Libcamera_Is_it_next_universal.png",
+      "cuts" : [
+         "00:16:33", "00:17:25", "00:46:00", "00:48:26"
+      ]
+    },
+    {
+      "index" : 8,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/aosp/08_Android_doesn’t_impact_general_purpose.png",
+      "cuts" : [
+         "00:48:27", "00:49:50", "01:03:00", "01:03:31"
+      ]
+    },
+    {
+      "index" : 9,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/aosp/09_AOSP_without_the_Baggage_Booting.png",
+      "cuts" : [
+         "01:07:28", "01:07:56", "01:22:00", "01:23:50"
+      ]
+    }
+  ]
+}

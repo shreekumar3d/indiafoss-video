@@ -1,0 +1,67 @@
+{
+  "devroom"         : "aosp",
+  "livestream"      : "localrec-1.mkv",
+  "vcam"            : "procam-1.mp4",
+  "noise-profile"   : "procam-1-noise-profile",
+
+  "proc" : {
+
+    "vcam-offset"     : -33.48375,
+
+    "noise-reduction" : 0.2,
+
+    "overlap" : 1,
+
+    "slides" : {
+      "crop"  : {
+        "xy" : [350, 1],
+	"wh" : [1568, 882]
+      },
+      "scale"    : [1436, 808],
+      "position" :  [42, 124]
+    },
+
+    "video" : {
+      "crop"  : {
+        "xy" : [555, 0],
+	"wh" : [810, 1080]
+      },
+      "scale"    : [360, 480],
+      "position" :  [1518, 234]
+    }
+  },
+  "talks" : [
+    {
+      "index" : 1,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/aosp/01_Strengthening_the_AOSP_Developer_Community.png",
+      "cuts" : [
+         "00:02:34", "00:03:05", "00:12:00", "00:12:52"
+      ]
+    },
+    {
+      "index" : 2,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/aosp/02_First_Step_into_Open_Source.png",
+      "cuts" : [
+         "00:13:00", "00:14:45", "00:23:06", "00:24:00"
+      ]
+    },
+    {
+      "index" : 3,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/aosp/03_AOSP_Testing_at_scale_using.png",
+      "cuts" : [
+         "00:24:05", "00:26:00", "00:45:10", "00:46:03"
+      ]
+    },
+    {
+      "index" : 4,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/aosp/04_Implementing_a_Custom_HAL_in.png",
+      "cuts" : [
+         "00:46:13", "00:48:40", "01:10:24", "01:10:56"
+      ]
+    }
+  ]
+}
