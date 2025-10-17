@@ -11,4 +11,5 @@ Formalizing Mathematics and Scientific Computing with an Open-Source Theorem Sol
 Empowering Open Science with Scalable Interactive Computing Environments in India
 The Observability of Everything: Instrumenting Science with DevOps Tools
 Breaking into the Black Box: Making LLMs Ttransparent for Science
+Signal Over Noise: Benchmarking Time Series Models with sktime
 .EOT
