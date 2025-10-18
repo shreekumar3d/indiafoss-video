@@ -1,0 +1,99 @@
+{
+  "devroom"         : "open-data",
+  "livestream"      : "ytlive-rescale-hd.mp4",
+  "vcam"            : "procam-1.mp4",
+  "noise-profile"   : "procam-1-noise-profile",
+
+  "proc" : {
+
+    "vcam-offset"     : 24.473625,
+
+    "noise-reduction" : 0.2,
+
+    "overlap" : 1,
+
+    "slides" : {
+      "crop"  : {
+        "xy" : [42, 124],
+	"wh" : [1436, 808]
+      },
+      "scale"    : [1436, 808],
+      "position" :  [42, 124]
+    },
+
+    "video" : {
+      "crop"  : {
+        "xy" : [555, 0],
+	"wh" : [810, 1080]
+      },
+      "scale"    : [360, 480],
+      "position" :  [1518, 234]
+    }
+  },
+  "talks" : [
+    {
+      "index" : 1,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/data/01_From_Raw_To_Relevant_Harnessing.png",
+      "cuts" : [
+         "00:00:37", "00:03:19", "00:22:27", "00:28:42"
+      ]
+    },
+    {
+      "index" : 2,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/data/02_Empowering_Pune_with_Open_Tree.png",
+      "cuts" : [
+         "00:28:43", "00:31:31", "00:42:54", "00:44:18"
+      ]
+    },
+    {
+      "index" : 3,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/data/03_Maps_Masala_&_Missed_Buses.png",
+      "cuts" : [
+         "00:47:40", "00:48:15", "01:02:36", "01:03:56"
+      ]
+    },
+    {
+      "index" : 4,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/data/04_BBMP_Tree_Census_Data_Analysis.png",
+      "cuts" : [
+         "01:03:57", "01:04:57", "01:18:00"
+      ]
+    },
+    {
+      "index" : 5,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/data/05_Let_us_make_accessible_Political.png",
+      "cuts" : [
+         "01:19:40", "01:20:16", "01:42:17", "01:44:16"
+      ]
+    },
+    {
+      "index" : 6,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/data/06_Building_great_datasets_on_your.png",
+      "cuts" : [
+         "01:44:17", "01:44:57", "01:57:20", "01:59:02"
+      ]
+    },
+    {
+      "index" : 7,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/data/07_Introducing_India's_Air_Quality_Index.png",
+      "cuts" : [
+         "01:59:04", "02:00:05", "02:15:38"
+      ]
+    },
+    {
+      "index" : 8,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/data/08_Making_Open_Data_Useful_Lessons.png",
+      "cuts" : [
+         "02:16:45", "02:17:15", "02:44:30", "02:46:32"
+      ]
+    }
+  ]
+}

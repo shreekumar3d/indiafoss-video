@@ -1,0 +1,43 @@
+{
+  "devroom"         : "open-data",
+  "livestream"      : "ytlive-rescale-hd.mp4",
+  "vcam"            : "procam-2.mp4",
+  "noise-profile"   : "procam-1-noise-profile",
+
+  "proc" : {
+
+    "vcam-offset"     : -10100.0625,
+
+    "noise-reduction" : 0.2,
+
+    "overlap" : 1,
+
+    "slides" : {
+      "crop"  : {
+        "xy" : [42, 124],
+	"wh" : [1436, 808]
+      },
+      "scale"    : [1436, 808],
+      "position" :  [42, 124]
+    },
+
+    "video" : {
+      "crop"  : {
+        "xy" : [555, 0],
+	"wh" : [810, 1080]
+      },
+      "scale"    : [360, 480],
+      "position" :  [1518, 234]
+    }
+  },
+  "talks" : [
+    {
+      "index" : 9,
+      "fullscreen-template": "overlay-video-full-screen.png",
+      "info-image": "../../obs/track-ordered/data/09_FederatedCode_Using_ActivityPub_for_Open.png",
+      "cuts" : [
+         "02:48:23", "02:48:46", "02:59:40", "03:01:14", "03:01:54"
+      ]
+    }
+  ]
+}
