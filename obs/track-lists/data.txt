@@ -3,7 +3,7 @@ Empowering Pune with Open Tree Data: A Data-Driven Dashboard for a Cooler, Green
 Maps, Masala & Missed Buses: Bengaluru’s Story Through Open Data
 BBMP Tree Census Data Analysis
 Let us make accessible Political Archives on the internet: The Constitution, Parliament and News Reporting on Hate
-Building great datasets on your mother tongue with Open-Weight models
+IDS-DRR: An Open Data and AI Platform for Disaster Management
 Introducing India's Air Quality Index bulletins open data 2015-24
 Making Open Data Useful: Lessons from Diagram Chasing
 FederatedCode: Using ActivityPub for Open Data Federation
