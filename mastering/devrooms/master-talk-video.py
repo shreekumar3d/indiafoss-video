@@ -56,6 +56,8 @@ def master_video(cfg, this_talk, verbose=False):
     devroom = cfg['devroom']
     noise_profile_file = cfg["noise-profile"]
     noise_profile = f'{devroom}/{noise_profile_file}'
+    # global audio filter
+    extra_audio_filters = ','+cfg['audio_filter'] if 'audio_filter' in cfg else ''
 
     livestream = cfg['livestream']
     procam = cfg['vcam']
@@ -64,6 +66,9 @@ def master_video(cfg, this_talk, verbose=False):
     nr_factor = cfg['proc']['noise-reduction']
     offset = cfg['proc']['vcam-offset']
     procam_offset = timedelta(seconds=abs(offset))
+
+    # override audio filters - may need to do per speaker at some time point in time
+    extra_audio_filters = ','+this_talk['audio_filter'] if 'audio_filter' in this_talk else extra_audio_filters
 
     talk_idx = this_talk['index']
     info_image = this_talk['info-image']
@@ -103,6 +108,7 @@ def master_video(cfg, this_talk, verbose=False):
     print(f'  Start : sv @ {t_start_sv} procam @ {t_start_procam}')
     print(f'  Length: {seg_duration}')
     print(f'  Noise Reduction : {nr_factor}')
+    print(f'  Audio Filters : {extra_audio_filters[1:]}')
 
     overlap = cfg["proc"]["overlap"] # in seconds between clips
     is_first_seg = True
@@ -221,7 +227,7 @@ def master_video(cfg, this_talk, verbose=False):
     add_proc('Replicating R=L in audio track...',
              ['ffmpeg',
               '-i', seg_procam_nn_a,
-              '-af', 'pan=stereo|FL=FL|FR=FL',
+              '-af', f'pan=stereo|FL=FL|FR=FL{extra_audio_filters}',
               '-acodec', 'pcm_s16le',
               '-y', seg_filtered_a
              ],
