@@ -30,19 +30,22 @@ from pprint import pprint
 import re
 import json
 import argparse
+from enum import Enum
 
-# Iterative development flag
-skip_proc = False
+from enum import Enum
 
-def set_skip_proc(state):
-    global skip_proc
-    skip_proc = state
+class Pipeline(Enum):
+    full = "full"
+    clips = "clips"
+    audio = "audio"
+
+    def __str__(self):
+        # This makes the help message and error messages more user-friendly
+        return self.value
 
 def add_proc(message, cmd, capture_output=False, verbose=False):
     global skip_proc
     print(message)
-    if skip_proc:
-        return None
     if capture_output:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         return result
@@ -52,7 +55,7 @@ def add_proc(message, cmd, capture_output=False, verbose=False):
         else:
             subprocess.run(cmd, capture_output=True, text=True, check=True)
 
-def master_video(cfg, this_talk, verbose=False):
+def master_video(cfg, this_talk, pipeline, verbose=False):
     devroom = cfg['devroom']
     noise_profile_file = cfg["noise-profile"]
     noise_profile = f'{devroom}/{noise_profile_file}'
@@ -135,39 +138,37 @@ def master_video(cfg, this_talk, verbose=False):
         is_fs_video = not is_fs_video # alternate clips
         seg_idx += 1
 
-    set_skip_proc(True)
-    set_skip_proc(False)
+    if pipeline == Pipeline.full:
+        # Cut out a segment (of interest) of the two source videos
+        # no audio needed from livestream
+        add_proc('Cutting livestream...',
+                 ['ffmpeg',
+                  '-i', vid_slides,
+                  '-ss', t_start_sv, '-t', seg_duration,
+                  '-an', '-c:v', 'copy',
+                  '-y', seg_vid_slides
+                 ],
+                 verbose = verbose
+        )
+        add_proc('Cutting camera video...',
+                 ['ffmpeg',
+                  '-i', vid_procam,
+                  '-ss', t_start_procam, '-t', seg_duration,
+                  '-c', 'copy', 
+                  '-y', seg_procam_av
+                 ],
+                 verbose = verbose
+        )
 
-    # Cut out a segment (of interest) of the two source videos
-    # no audio needed from livestream
-    add_proc('Cutting livestream...',
-             ['ffmpeg',
-              '-i', vid_slides,
-              '-ss', t_start_sv, '-t', seg_duration,
-              '-an', '-c:v', 'copy',
-              '-y', seg_vid_slides
-             ],
-             verbose = verbose
-    )
-    add_proc('Cutting camera video...',
-             ['ffmpeg',
-              '-i', vid_procam,
-              '-ss', t_start_procam, '-t', seg_duration,
-              '-c', 'copy', 
-              '-y', seg_procam_av
-             ],
-             verbose = verbose
-    )
-
-    # Cut out the segment - combined with the fullscreen template
-    add_proc('Generating fullscreen video...',
-             ['ffmpeg', '-i', seg_procam_av, '-i', fullscreen_template, '-an',
-              '-filter_complex',
-              '[0:v][1:v]overlay=0:0',
-              '-y', seg_speaker_only
-             ],
-             verbose = verbose
-    )
+        # Cut out the segment - combined with the fullscreen template
+        add_proc('Generating fullscreen video...',
+                 ['ffmpeg', '-i', seg_procam_av, '-i', fullscreen_template, '-an',
+                  '-filter_complex',
+                  '[0:v][1:v]overlay=0:0',
+                  '-y', seg_speaker_only
+                 ],
+                 verbose = verbose
+        )
 
     # Create a video that stuffs
     #  - procam video
@@ -187,67 +188,65 @@ def master_video(cfg, this_talk, verbose=False):
     video=f'[2:v]crop={video_cw}:{video_ch}:{video_cx}:{video_cy},scale={video_sx}:{video_sy}[v2];'
     mix_slides=f'[0:v][v1]overlay={slides_px}:{slides_py}[mix1];'
     mix_video=f'[mix1][v2]overlay={video_px}:{video_py}[outv]'
-    add_proc('Regenerating slides+camera video...',
-             ['ffmpeg', '-i', info_image, '-i', seg_vid_slides, '-i', seg_procam_av,
-              '-filter_complex',
-              slides +
-              video +
-              mix_slides +
-              mix_video,
-              '-map', '[outv]',
-              '-y', seg_vid_slides_realign
-             ],
-             verbose = verbose
-    )
+    if pipeline == Pipeline.full:
+        add_proc('Regenerating slides+camera video...',
+                 ['ffmpeg', '-i', info_image, '-i', seg_vid_slides, '-i', seg_procam_av,
+                  '-filter_complex',
+                  slides +
+                  video +
+                  mix_slides +
+                  mix_video,
+                  '-map', '[outv]',
+                  '-y', seg_vid_slides_realign
+                 ],
+                 verbose = verbose
+        )
 
-    # Extract only the audio
-    add_proc('Extracting audio track...',
-             ['ffmpeg',
-              '-i', seg_procam_av,
-              '-vn',
-              '-acodec', 'pcm_s16le',
-              '-y', seg_procam_a
-             ],
-             verbose = verbose
-    )
+    if pipeline == Pipeline.full:
+        # Extract only the audio
+        add_proc('Extracting audio track...',
+                 ['ffmpeg',
+                  '-i', seg_procam_av,
+                  '-vn',
+                  '-acodec', 'pcm_s16le',
+                  '-y', seg_procam_a
+                 ],
+                 verbose = verbose
+        )
 
-    # Denoise audio using existing profile
-    add_proc('Denoising audio track...',
-             ['sox',
-              '--multi-threaded',
-              seg_procam_a, seg_procam_nn_a,
-              'noisered', noise_profile,
-              str(nr_factor)
-             ],
-             verbose = verbose
-    )
-
-    # camera audio is mono - replicate in both L/R for better
-    # volume
-    add_proc('Replicating R=L in audio track...',
-             ['ffmpeg',
-              '-i', seg_procam_nn_a,
-              '-af', f'pan=stereo|FL=FL|FR=FL{extra_audio_filters}',
-              '-acodec', 'pcm_s16le',
-              '-y', seg_filtered_a
-             ],
-             verbose = verbose
-    )
-
-    # Measure audio characteristics using loudnorm
-    result = add_proc('Measuring loudness of audio track...',
-                      ['ffmpeg',
-                       '-i', seg_filtered_a,
-                       '-filter:a', 'loudnorm=print_format=json',
-                       '-f', 'null', '/dev/null'
-                      ],
-                      capture_output = True,
-                      verbose = verbose
-                     )
-    #print(result.stderr)
-    #open('/tmp/info','w').write(result.stderr)
-    #set_skip_proc(False)
-    #output = open('/tmp/info','r').read()
+    result = None
+    if pipeline in [Pipeline.audio, Pipeline.full]:
+        # Denoise audio using existing profile
+        add_proc('Denoising audio track...',
+                 ['sox',
+                  '--multi-threaded',
+                  seg_procam_a, seg_procam_nn_a,
+                  'noisered', noise_profile,
+                  str(nr_factor)
+                 ],
+                 verbose = verbose
+        )
+        # camera audio is mono - replicate in both L/R for better
+        # volume
+        add_proc('Replicating R=L in audio track...',
+                 ['ffmpeg',
+                  '-i', seg_procam_nn_a,
+                  '-af', f'pan=stereo|FL=FL|FR=FL{extra_audio_filters}',
+                  '-acodec', 'pcm_s16le',
+                  '-y', seg_filtered_a
+                 ],
+                 verbose = verbose
+        )
+        # Measure audio characteristics using loudnorm
+        result = add_proc('Measuring loudness of audio track...',
+                          ['ffmpeg',
+                           '-i', seg_filtered_a,
+                           '-filter:a', 'loudnorm=print_format=json',
+                           '-f', 'null', '/dev/null'
+                          ],
+                          capture_output = True,
+                          verbose = verbose
+                         )
 
     if result:
         output = result.stderr
@@ -277,49 +276,52 @@ def master_video(cfg, this_talk, verbose=False):
                  verbose=verbose
         )
 
-    # Generate all the cuts of the video files
-    for seg_idx, src_vfile, start, duration, out_vfile in clips:
-        add_proc(f'Generating segment {seg_idx} start={str(start)} duration={duration}',
-                 ['ffmpeg',
-                  '-i', src_vfile,
-                  '-ss', str(start), '-t', duration,
-                  '-an',
-                  '-y', out_vfile
-                 ],
-                 verbose=verbose
-        )
+    if pipeline in [Pipeline.clips, Pipeline.full]:
+        # Generate all the cuts of the video files
+        for seg_idx, src_vfile, start, duration, out_vfile in clips:
+            add_proc(f'Generating segment {seg_idx} start={str(start)} duration={duration}',
+                     ['ffmpeg',
+                      '-i', src_vfile,
+                      '-ss', str(start), '-t', duration,
+                      '-an',
+                      '-y', out_vfile
+                     ],
+                     verbose=verbose
+            )
 
-    # Merge the cuts into one video with crossfades!
-    src_vid = "[0:v]"
-    filter_complex = ""
-    stitch_cmd = ['ffmpeg']
-    stitch_cmd.append('-i')
-    stitch_cmd.append(clips[0][-1])
-    for seg_idx, src_vfile, start, duration, out_vfile in clips[1:]:
-        next_src_vid = f"vfade{seg_idx}"
-        filter_complex += f"{src_vid}[{seg_idx}:v]xfade=transition=fade:duration={overlap}:offset={start.seconds}[{next_src_vid}];"
+    if pipeline in [Pipeline.clips, Pipeline.full]:
+        # Merge the cuts into one video with crossfades!
+        src_vid = "[0:v]"
+        filter_complex = ""
+        stitch_cmd = ['ffmpeg']
         stitch_cmd.append('-i')
-        stitch_cmd.append(out_vfile)
-        src_vid = f'[{next_src_vid}]'
-    stitch_cmd.append('-filter_complex')
-    stitch_cmd.append(filter_complex)
-    stitch_cmd.append('-map')
-    stitch_cmd.append(f'{src_vid}')
-    stitch_cmd.append('-movflags')
-    stitch_cmd.append('+faststart')
-    stitch_cmd.append('-y')
-    stitch_cmd.append(seg_interleaved)
-    if verbose:
-        pprint(stitch_cmd)
-    add_proc('Merging video segments with crossfades...',
-             stitch_cmd,
-             verbose=verbose)
+        stitch_cmd.append(clips[0][-1])
+        for seg_idx, src_vfile, start, duration, out_vfile in clips[1:]:
+            next_src_vid = f"vfade{seg_idx}"
+            filter_complex += f"{src_vid}[{seg_idx}:v]xfade=transition=fade:duration={overlap}:offset={start.seconds}[{next_src_vid}];"
+            stitch_cmd.append('-i')
+            stitch_cmd.append(out_vfile)
+            src_vid = f'[{next_src_vid}]'
+        stitch_cmd.append('-filter_complex')
+        stitch_cmd.append(filter_complex)
+        stitch_cmd.append('-map')
+        stitch_cmd.append(f'{src_vid}')
+        stitch_cmd.append('-movflags')
+        stitch_cmd.append('+faststart')
+        stitch_cmd.append('-y')
+        stitch_cmd.append(seg_interleaved)
+        if verbose:
+            pprint(stitch_cmd)
+        add_proc('Merging video segments with crossfades...',
+                 stitch_cmd,
+                 verbose=verbose)
 
     # Add corrected audio to interleaved slide video
     add_proc('Merging corrected audio into video to generate FINAL VIDEO...',
              ['ffmpeg',
               '-i', seg_interleaved,
               '-i', seg_corrected_a,
+              '-c:v', 'copy',
               '-map', '0:v:0',
               '-map', '1:a:0',
               '-y', seg_talk_av
@@ -340,15 +342,19 @@ parser.add_argument('--index', '-i', type=int, help="""
     Generate video only for talk having this index in the json file. If not
     specified, all talk videos are processed.
 """)
+parser.add_argument('--pipeline', '-p', type=Pipeline, choices=list(Pipeline),
+    help="""Run a part of the processing pipeline.""")
 args = parser.parse_args()
+
+if args.pipeline is None:
+    args.pipeline = Pipeline(Pipeline.full)
 
 cfg = json.loads(open(args.devroom_json,'r').read())
 
 if args.index:
     for talk in cfg['talks']:
         if args.index == talk['index']:
-            master_video(cfg, talk, args.verbose)
-            break
+            master_video(cfg, talk, args.pipeline, args.verbose)
 else:
     for talk in cfg['talks']:
-        master_video(cfg, talk, args.verbose)
+        master_video(cfg, talk, args.pipeline, args.verbose)
