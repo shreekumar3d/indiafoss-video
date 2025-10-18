@@ -3,6 +3,7 @@
   "livestream"      : "ytlive-rescale-hd.mp4",
   "vcam"            : "procam-2.mp4",
   "noise-profile"   : "procam-1-noise-profile",
+  "audio_filter"    : "lowpass=3000",
 
   "proc" : {
 
