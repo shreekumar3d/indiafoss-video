@@ -82,8 +82,21 @@ The mastering process is:
   Each devroom directory has a denoise-audio.sh script that does this. The
   timestamps were manually generated, and recorded in the scripts.
 
-* Combine the videos, with a cutlist of timestamps, merge with denoised audio.
-  (master-talk-video.py)
+* Level correct the audio using normalization. We're using an audio level of 
+  -16, as opposed to a recommended level of -23/-24.  This is because most
+  people who reviewed the audio had their volume level set around 50%.
+  Potential reason might be that people hear a lot more audio (podcasts etc),
+  and -16 is the recommended level for such things. Setting to -23/-24 makes
+  the audios less loud even at max volume, and most people don't have the
+  option of overamplification.  This is true for desktops/mobiles, not an
+  issue for TVs.  So -16 is good, and isn't a problem for TVs either, as the
+  volume can be toned down if it's too loud.
+
+* For one devroom (Data) I also had to apply a lowpass filter to reduce
+  some tinny noise. This needs to be investigated later.
+
+* Combine the videos, with a cutlist of timestamps, merge with denoised +
+  corrected audio.  (master-talk-video.py)
 
 # Overall learning from Mastering
 
@@ -116,3 +129,21 @@ The mastering process is:
 
 * Spend 10 minutes to train devrooms on how-to run the show. Standardize setup
   instructions and tests. Update documents - do this before the CFP issues :)
+
+# Things I'd rather not talk about
+
+Couple of devrooms (Compilers and Geopolitics+Policy) were recorded with the same
+camera.  However, we didn't record the slides.  That's because the video team
+got held up in the main/other audis on both days in the morning. 
+
+These devrooms had a TV + laptop + speaker talking into the mic. Room capacity was
+about 35-40 people. Sony FX3 recording the proceedings. Technically this
+these devrooms were the easiest, but because we went to them last, the only thing
+we got out of these devrooms were camera recordings. No external audio to worry
+about, and hence no noise cancellation to do.
+
+Long story short, the videos are processed with a fullscreen template overlayed.
+Plus audio level correction. Good enough for many of the videos, but some videos
+really could do with the slides being visible. The Sony FX3 was chosen for its
+great eye focus. But that problem with camera only video - as the slides get
+defocussed.  Well, you live and you learn!
