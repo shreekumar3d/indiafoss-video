@@ -32,6 +32,17 @@ To process all the talks in a devroom, run:
 Each devroom directory also has scripts that show how the videos tracks were
 aligned, and denoised. Read on for how.
 
+I also made a script to render all devroom videos just for fund, and to see
+how long it takes
+
+    $ time sh render-all-if25-devroom.sh 2>&1 | tee log-render-all
+    real    282m25.190s
+    user    3953m18.265s
+    sys     113m26.113s
+
+Takes less than 5 hrs on my 16 core AMD Ryzen 7950X based desktop.  That's a
+multithreading speedup of 14x.
+
 ## Source Videos
 
 UNCUT videos from the camera. These cover the speaker, but aren't good for slides.
